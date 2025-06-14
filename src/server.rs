@@ -32,19 +32,12 @@ impl Backend {
             index: indexer::GlobalIndex::new(),
         }
     }
-
-    async fn log(&self, message: impl Into<String>) {
-        let _ = self
-            .client
-            .log_message(MessageType::LOG, message.into())
-            .await;
-    }
 }
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
-        self.log("initialize called").await;
+        log::debug!("initialize called");
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
@@ -66,20 +59,19 @@ impl LanguageServer for Backend {
     async fn initialized(&self, _: InitializedParams) {}
 
     async fn shutdown(&self) -> Result<()> {
-        self.log("shutdown called").await;
+        log::debug!("shutdown called");
         Ok(())
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.log(format!("opened {}", params.text_document.uri))
-            .await;
+        log::debug!("opened {}", params.text_document.uri);
         self.handle_change(params.text_document.uri.clone(), params.text_document.text)
             .await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         if let Some(change) = params.content_changes.first() {
-            self.log("document changed").await;
+            log::debug!("document changed");
             self.handle_change(params.text_document.uri.clone(), change.text.clone())
                 .await;
         }
@@ -89,7 +81,7 @@ impl LanguageServer for Backend {
         &self,
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        self.log("goto_definition request").await;
+        log::debug!("goto_definition request");
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
         if let Some(doc) = self.get_document(&uri) {
@@ -103,15 +95,30 @@ impl LanguageServer for Backend {
                     &doc.symbols,
                     &self.index,
                 ) {
+                    log::debug!(
+                        "goto_definition found: {} at {:?}",
+                        resolved.name,
+                        resolved.location
+                    );
                     return Ok(Some(GotoDefinitionResponse::Scalar(resolved.location)));
+                } else {
+                    log::debug!("goto_definition: symbol '{}' not resolved", name);
                 }
+            } else {
+                log::debug!(
+                    "goto_definition: no symbol found at position {:?}",
+                    position
+                );
             }
+        } else {
+            log::debug!("goto_definition: document not found for uri {}", uri);
         }
+        log::debug!("goto_definition: returning None");
         Ok(None)
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        self.log("completion request").await;
+        log::debug!("completion request");
         let uri = params.text_document_position.text_document.uri;
         let mut items = Vec::new();
         if let Some(doc) = self.get_document(&uri) {
@@ -132,13 +139,12 @@ impl LanguageServer for Backend {
                 });
             }
         }
-        self.log(format!("completion returned {} items", items.len()))
-            .await;
+        log::debug!("completion returned {} items", items.len());
         Ok(Some(CompletionResponse::Array(items)))
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        self.log("hover request").await;
+        log::debug!("hover request");
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
         if let Some(doc) = self.get_document(&uri) {
@@ -171,7 +177,7 @@ impl LanguageServer for Backend {
         params: ExecuteCommandParams,
     ) -> Result<Option<serde_json::Value>> {
         if params.command == "phppp.restart" {
-            self.log("Restart requested").await;
+            log::debug!("Restart requested");
             std::process::exit(0);
         }
         Ok(None)
@@ -180,7 +186,7 @@ impl LanguageServer for Backend {
 
 impl Backend {
     async fn handle_change(&self, uri: Url, content: String) {
-        self.log(format!("indexing {}", uri)).await;
+        log::debug!("indexing {}", uri);
 
         let ast = {
             let bump = self.bump.lock().unwrap();
@@ -202,7 +208,7 @@ impl Backend {
             );
         }
 
-        self.log("document indexed").await;
+        log::debug!("document indexed");
     }
 
     fn get_document(&self, uri: &Url) -> Option<DocumentState> {
