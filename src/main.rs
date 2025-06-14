@@ -1,4 +1,5 @@
 use bumpalo::Bump;
+use log::{debug, error, info};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
@@ -55,45 +56,77 @@ impl LanguageServer for Backend {
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        self.handle_change(params.text_document.uri, params.text_document.text)
+        info!("did_open called for URI: {}", params.text_document.uri);
+        debug!(
+            "Document content length: {} bytes",
+            params.text_document.text.len()
+        );
+
+        self.handle_change(params.text_document.uri.clone(), params.text_document.text)
             .await;
+
+        info!("did_open completed for URI: {}", params.text_document.uri);
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
+        info!("did_change called for URI: {}", params.text_document.uri);
+
         if let Some(change) = params.content_changes.first() {
-            self.handle_change(params.text_document.uri, change.text.clone())
+            debug!("Change content length: {} bytes", change.text.len());
+            self.handle_change(params.text_document.uri.clone(), change.text.clone())
                 .await;
+            info!("did_change completed for URI: {}", params.text_document.uri);
+        } else {
+            debug!("No content changes found in did_change");
         }
     }
 }
 
 impl Backend {
     async fn handle_change(&self, uri: Url, content: String) {
+        debug!("handle_change called for URI: {}", uri);
+
         let mut docs = self.documents.lock().unwrap();
         let bump = self.bump.lock().unwrap();
+
+        debug!("Parsing PHP content for URI: {}", uri);
         let ast = parser::parse_php(&content, &bump); // parsed with tree-sitter
         let symbols = indexer::extract_symbols(&content, &ast, &uri);
 
+        // debug!(
+        //     "Extracted {} symbols from {}",
+        //     symbols.functions.len() + symbols.classes.len() + symbols.variables.len(),
+        //     uri
+        // );
+
         self.index.insert(uri.clone(), symbols.clone());
 
+        debug!("Running type resolution for URI: {}", uri);
         analyzer::resolve_types_parallel(&symbols);
 
         docs.insert(
-            uri,
+            uri.clone(),
             DocumentState {
                 text: content,
                 ast: Some(ast),
                 symbols,
             },
         );
+
+        debug!("handle_change completed for URI: {}", uri);
     }
 }
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+    info!("Starting PHP LSP server");
+
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
     let backend = Backend::default();
     let (service, socket) = LspService::new(|_| backend);
+
+    info!("LSP server initialized, starting to serve requests");
     Server::new(stdin, stdout, socket).serve(service).await;
 }
