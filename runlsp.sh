@@ -106,7 +106,7 @@ cd "$EXT_DIR"
 npm install vscode-languageclient @vscode/vsce
 
 echo "🧪 Packaging extension..."
-npx vsce package --no-yarn --pre-release -o "$PROJECT_ROOT/$LSP_NAME.vsix"
+npx vsce package --no-yarn --pre-release --yes -o "$PROJECT_ROOT/$LSP_NAME.vsix"
 
 echo "📥 Installing into $EDITOR_CMD..."
 # Uninstall existing version first (if any)
