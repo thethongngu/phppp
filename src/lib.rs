@@ -3,3 +3,4 @@ pub mod fs;
 pub mod indexer;
 pub mod parser;
 pub mod resolver;
+pub mod server;

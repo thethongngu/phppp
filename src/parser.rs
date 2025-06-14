@@ -2,7 +2,7 @@ use bumpalo::Bump;
 use tree_sitter::{Parser, Tree};
 use tree_sitter_php::LANGUAGE_PHP;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ast(pub Tree);
 
 pub fn parse_php(input: &str, _bump: &Bump) -> Ast {
