@@ -7,6 +7,16 @@ edition = "2024"
 name = "phppp"
 path = "src/lib.rs"
 
+[[bin]]
+name = "phppp"
+path = "src/main.rs"
+test = false
+
+[[bin]]
+name = "example"
+path = "src/bin/example.rs"
+test = false
+
 [dependencies]
 tower-lsp = "0.20"
 tokio = { version = "1", features = ["full"] }
