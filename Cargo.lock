@@ -633,6 +633,7 @@ dependencies = [
  "dashmap",
  "notify",
  "rayon",
+ "regex",
  "tokio",
  "tower-lsp",
  "tree-sitter",
