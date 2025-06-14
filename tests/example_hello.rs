@@ -1,11 +1,16 @@
 use bumpalo::Bump;
 use std::{fs, process::Command};
 use tower_lsp::lsp_types::Url;
+use which::which;
 
 use phppp::{indexer, parser};
 
 #[test]
 fn hello_example() {
+    if which("php").is_err() {
+        eprintln!("skipping hello_example: php not found");
+        return;
+    }
     let path = fs::canonicalize("examples/hello.php").unwrap();
     let text = fs::read_to_string(&path).unwrap();
     let bump = Bump::new();
