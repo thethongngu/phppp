@@ -5,7 +5,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{LanguageServer, LspService, Server};
 
-use phppp::{analyzer, fs, indexer, parser};
+use phppp::{analyzer, indexer, parser};
 
 #[derive(Default)]
 struct DocumentState {
@@ -69,7 +69,7 @@ impl Backend {
     async fn handle_change(&self, uri: Url, content: String) {
         let mut docs = self.documents.lock().unwrap();
         let bump = self.bump.lock().unwrap();
-        let ast = parser::parse_php(&content, &bump); // fast, zero-copy
+        let ast = parser::parse_php(&content, &bump); // parsed with tree-sitter
         let symbols = indexer::extract_symbols(&ast);
 
         analyzer::resolve_types_parallel(&symbols);

@@ -10,6 +10,6 @@ fn main() {
     let bump = Bump::new();
     let ast = parser::parse_php(&text, &bump);
     let symbols = indexer::extract_symbols(&ast);
-    println!("Tokens: {:?}", ast.0);
+    println!("AST: {}", ast.0.root_node().to_sexp());
     println!("Symbols: {:?}", symbols);
 }
