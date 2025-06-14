@@ -6,10 +6,12 @@ use tree_sitter_php::LANGUAGE_PHP;
 pub struct Ast(pub Tree);
 
 pub fn parse_php(input: &str, _bump: &Bump) -> Ast {
+    log::debug!("Parsing PHP source ({} bytes)", input.len());
     let mut parser = Parser::new();
     parser
         .set_language(&LANGUAGE_PHP.into())
         .expect("Failed to load PHP grammar");
     let tree = parser.parse(input, None).expect("Failed to parse");
+    log::debug!("Finished parsing");
     Ast(tree)
 }

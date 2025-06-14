@@ -1,14 +1,15 @@
 use phppp::server::Backend;
-use tower_lsp::LanguageServer;
 use tower_lsp::lsp_types::{
     CompletionParams, CompletionResponse, DidOpenTextDocumentParams, GotoDefinitionParams,
     GotoDefinitionResponse, HoverParams, Position, TextDocumentIdentifier, TextDocumentItem,
     TextDocumentPositionParams, Url,
 };
+use tower_lsp::{LanguageServer, LspService};
 
 #[tokio::test]
 async fn goto_definition_basic() {
-    let backend = Backend::default();
+    let (service, _) = LspService::new(|c| Backend::new(c));
+    let backend = service.inner();
     let uri = Url::parse("file:///test.php").unwrap();
     let text = "<?php function foo() {}\nfoo();";
     let open = DidOpenTextDocumentParams {
@@ -43,7 +44,8 @@ async fn goto_definition_basic() {
 
 #[tokio::test]
 async fn completion_returns_items() {
-    let backend = Backend::default();
+    let (service, _) = LspService::new(|c| Backend::new(c));
+    let backend = service.inner();
     let uri = Url::parse("file:///test.php").unwrap();
     let text = "<?php function foo() {}";
     let open = DidOpenTextDocumentParams {
@@ -78,7 +80,8 @@ async fn completion_returns_items() {
 
 #[tokio::test]
 async fn hover_shows_symbol() {
-    let backend = Backend::default();
+    let (service, _) = LspService::new(|c| Backend::new(c));
+    let backend = service.inner();
     let uri = Url::parse("file:///test.php").unwrap();
     let text = "<?php function foo() {}\nfoo();";
     backend
