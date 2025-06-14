@@ -25,6 +25,7 @@ pub struct Backend {
 impl Backend {
     pub fn new(client: Client) -> Self {
         crate::logging::init(client.clone());
+        log::info!("running phppp version {}", env!("CARGO_PKG_VERSION"));
         Self {
             client,
             documents: Arc::new(Mutex::new(HashMap::new())),
@@ -100,6 +101,7 @@ impl LanguageServer for Backend {
                         resolved.name,
                         resolved.location
                     );
+                    log::debug!("goto_definition: returning definition");
                     return Ok(Some(GotoDefinitionResponse::Scalar(resolved.location)));
                 } else {
                     log::debug!("goto_definition: symbol '{}' not resolved", name);
@@ -114,6 +116,7 @@ impl LanguageServer for Backend {
             log::debug!("goto_definition: document not found for uri {}", uri);
         }
         log::debug!("goto_definition: returning None");
+        log::debug!("goto_definition completed");
         Ok(None)
     }
 
@@ -140,6 +143,7 @@ impl LanguageServer for Backend {
             }
         }
         log::debug!("completion returned {} items", items.len());
+        log::debug!("completion completed");
         Ok(Some(CompletionResponse::Array(items)))
     }
 
@@ -162,6 +166,7 @@ impl LanguageServer for Backend {
                         "{} {:?}",
                         resolved.name, resolved.kind
                     )));
+                    log::debug!("hover: returning information for {}", resolved.name);
                     return Ok(Some(Hover {
                         contents,
                         range: Some(resolved.location.range),
@@ -169,6 +174,7 @@ impl LanguageServer for Backend {
                 }
             }
         }
+        log::debug!("hover: returning None");
         Ok(None)
     }
 

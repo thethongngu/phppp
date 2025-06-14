@@ -30,12 +30,15 @@ cat > "$EXT_DIR/package.json" <<EOF
   "name": "$LSP_NAME",
   "displayName": "PHP LSP (phppp)",
   "description": "Rust-based PHP Language Server Protocol implementation",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "local-dev",
   "main": "./extension.js",
   "engines": { "vscode": "^1.80.0" },
   "categories": ["Programming Languages", "Language Packs"],
-  "activationEvents": ["onLanguage:php"],
+  "activationEvents": [
+    "onLanguage:php",
+    "onCommand:phppp.restart"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/thethongngu/phppp"
@@ -43,10 +46,14 @@ cat > "$EXT_DIR/package.json" <<EOF
   "license": "MIT",
   "keywords": ["php", "lsp", "language server", "phppp"],
   "contributes": {
-    "languages": [{ 
-      "id": "php", 
+    "languages": [{
+      "id": "php",
       "extensions": [".php"],
       "aliases": ["PHP", "php"]
+    }],
+    "commands": [{
+      "command": "phppp.restart",
+      "title": "phppp: Restart Server"
     }]
   },
   "devDependencies": {
@@ -92,6 +99,13 @@ function activate(context) {
         fileEvents: vscode.workspace.createFileSystemWatcher("**/*.php")
       }
     }
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("phppp.restart", async () => {
+      await client.stop();
+      client.start();
+    })
   );
 
   context.subscriptions.push(client.start());
