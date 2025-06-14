@@ -1,28 +1,15 @@
 use bumpalo::Bump;
-use logos::Logos;
-
-#[derive(Debug, Logos, PartialEq)]
-pub enum Token {
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*")]
-    Ident,
-
-    #[regex(r"[0-9]+")]
-    Number,
-
-    #[token("<?php")]
-    PhpStart,
-
-    #[token("?>")]
-    PhpEnd,
-
-    #[regex(r"\s+", logos::skip)]
-    Whitespace,
-}
+use tree_sitter::{Parser, Tree};
+use tree_sitter_php::LANGUAGE_PHP;
 
 #[derive(Debug)]
-pub struct Ast(pub Vec<Token>);
+pub struct Ast(pub Tree);
 
 pub fn parse_php(input: &str, _bump: &Bump) -> Ast {
-    let lexer = Token::lexer(input);
-    Ast(lexer.filter_map(Result::ok).collect())
+    let mut parser = Parser::new();
+    parser
+        .set_language(&LANGUAGE_PHP.into())
+        .expect("Failed to load PHP grammar");
+    let tree = parser.parse(input, None).expect("Failed to parse");
+    Ast(tree)
 }
