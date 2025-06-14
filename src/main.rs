@@ -11,12 +11,13 @@ use phppp::{analyzer, indexer, parser};
 struct DocumentState {
     text: String,
     ast: Option<parser::Ast>,
-    symbols: Vec<indexer::Symbol>,
+    symbols: indexer::FileSymbols,
 }
 
 struct Backend {
     documents: Arc<Mutex<HashMap<Url, DocumentState>>>,
     bump: Mutex<Bump>, // Shared arena allocator guarded by mutex
+    index: indexer::GlobalIndex,
 }
 
 impl Default for Backend {
@@ -24,6 +25,7 @@ impl Default for Backend {
         Self {
             documents: Arc::new(Mutex::new(HashMap::new())),
             bump: Mutex::new(Bump::new()),
+            index: indexer::GlobalIndex::new(),
         }
     }
 }
@@ -70,7 +72,9 @@ impl Backend {
         let mut docs = self.documents.lock().unwrap();
         let bump = self.bump.lock().unwrap();
         let ast = parser::parse_php(&content, &bump); // parsed with tree-sitter
-        let symbols = indexer::extract_symbols(&ast);
+        let symbols = indexer::extract_symbols(&content, &ast, &uri);
+
+        self.index.insert(uri.clone(), symbols.clone());
 
         analyzer::resolve_types_parallel(&symbols);
 

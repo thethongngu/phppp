@@ -630,6 +630,7 @@ name = "phppp"
 version = "0.1.0"
 dependencies = [
  "bumpalo",
+ "dashmap",
  "notify",
  "rayon",
  "tokio",

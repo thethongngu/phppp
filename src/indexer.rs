@@ -1,25 +1,166 @@
+use std::collections::HashMap;
+
+use dashmap::DashMap;
+use tower_lsp::lsp_types::{Location, Position, Range, Url};
 use tree_sitter::Node;
+
+use crate::parser::Ast;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SymbolKind {
+    Function,
+    Class,
+    Constant,
+    Variable,
+}
 
 #[derive(Debug, Clone)]
 pub struct Symbol {
     pub name: String,
+    pub kind: SymbolKind,
+    pub location: Location,
+    pub container: Option<String>,
 }
 
-pub fn extract_symbols(ast: &crate::parser::Ast) -> Vec<Symbol> {
-    let mut result = Vec::new();
-    collect_names(ast.0.root_node(), &mut result);
-    result
-}
+pub type FileSymbols = HashMap<String, Symbol>;
+pub type GlobalIndex = DashMap<Url, FileSymbols>;
 
-fn collect_names(node: Node, out: &mut Vec<Symbol>) {
-    if node.kind() == "name" {
-        out.push(Symbol {
-            name: "identifier".to_string(),
-        });
-    }
-    for i in 0..node.child_count() {
-        if let Some(child) = node.child(i) {
-            collect_names(child, out);
+pub fn extract_symbols(src: &str, ast: &Ast, uri: &Url) -> FileSymbols {
+    let root = ast.0.root_node();
+    let mut out = HashMap::new();
+    let mut namespace = String::new();
+    for i in 0..root.named_child_count() {
+        if let Some(child) = root.named_child(i) {
+            match child.kind() {
+                "namespace_definition" => {
+                    if let Some(name_node) = child.child_by_field_name("name") {
+                        if let Ok(ns) = name_node.utf8_text(src.as_bytes()) {
+                            namespace = ns.to_string();
+                        }
+                    }
+                }
+                _ => collect_node(src, child, uri, &namespace, &mut out),
+            }
         }
+    }
+    out
+}
+
+fn collect_node(src: &str, node: Node, uri: &Url, namespace: &str, out: &mut FileSymbols) {
+    match node.kind() {
+        "function_definition" => {
+            add_symbol(src, node, uri, namespace, SymbolKind::Function, out);
+        }
+        "class_declaration" => {
+            add_symbol(src, node, uri, namespace, SymbolKind::Class, out);
+        }
+        "const_declaration" => add_constant(src, node, uri, namespace, out),
+        "expression_statement" => {
+            if let Some(expr) = node.named_child(0) {
+                if expr.kind() == "assignment_expression" {
+                    add_variable(src, expr, uri, namespace, out);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn add_symbol(
+    src: &str,
+    node: Node,
+    uri: &Url,
+    namespace: &str,
+    kind: SymbolKind,
+    out: &mut FileSymbols,
+) {
+    if let Some(name_node) = node.child_by_field_name("name") {
+        if let Ok(name) = name_node.utf8_text(src.as_bytes()) {
+            let fqn = if namespace.is_empty() {
+                name.to_string()
+            } else {
+                format!("{}\\{}", namespace, name)
+            };
+            out.insert(
+                fqn.clone(),
+                Symbol {
+                    name: fqn,
+                    kind,
+                    location: node_location(uri, node),
+                    container: None,
+                },
+            );
+        }
+    }
+}
+
+fn add_constant(src: &str, node: Node, uri: &Url, namespace: &str, out: &mut FileSymbols) {
+    for i in 0..node.named_child_count() {
+        if let Some(constant) = node.named_child(i) {
+            if constant.kind() == "const_element" {
+                let name_node = constant
+                    .child_by_field_name("name")
+                    .or_else(|| constant.named_child(0));
+                if let Some(name_node) = name_node {
+                    if let Ok(name) = name_node.utf8_text(src.as_bytes()) {
+                        let fqn = if namespace.is_empty() {
+                            name.to_string()
+                        } else {
+                            format!("{}\\{}", namespace, name)
+                        };
+                        out.insert(
+                            fqn.clone(),
+                            Symbol {
+                                name: fqn,
+                                kind: SymbolKind::Constant,
+                                location: node_location(uri, name_node),
+                                container: None,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn add_variable(src: &str, node: Node, uri: &Url, namespace: &str, out: &mut FileSymbols) {
+    if let Some(left) = node.child_by_field_name("left") {
+        if left.kind() == "variable_name" {
+            if let Ok(name) = left.utf8_text(src.as_bytes()) {
+                let fqn = if namespace.is_empty() {
+                    name.to_string()
+                } else {
+                    format!("{}\\{}", namespace, name)
+                };
+                out.insert(
+                    fqn.clone(),
+                    Symbol {
+                        name: fqn,
+                        kind: SymbolKind::Variable,
+                        location: node_location(uri, left),
+                        container: None,
+                    },
+                );
+            }
+        }
+    }
+}
+
+fn node_location(uri: &Url, node: Node) -> Location {
+    let start = node.start_position();
+    let end = node.end_position();
+    Location {
+        uri: uri.clone(),
+        range: Range {
+            start: Position {
+                line: start.row as u32,
+                character: start.column as u32,
+            },
+            end: Position {
+                line: end.row as u32,
+                character: end.column as u32,
+            },
+        },
     }
 }
