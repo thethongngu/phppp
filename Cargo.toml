@@ -1,0 +1,16 @@
+[package]
+name = "phppp"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "phppp"
+path = "src/lib.rs"
+
+[dependencies]
+tower-lsp = "0.20"
+tokio = { version = "1", features = ["full"] }
+notify = "6"
+rayon = "1"
+bumpalo = "3"
+logos = "0.13"
