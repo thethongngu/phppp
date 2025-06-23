@@ -33,7 +33,8 @@ pub struct Backend {
 impl Backend {
     pub fn new(client: Client) -> Self {
         crate::logging::init(client.clone());
-        log::info!("running phppp version {}", env!("CARGO_PKG_VERSION"));
+        crate::metrics::init();
+        tracing::info!("running phppp version {}", env!("CARGO_PKG_VERSION"));
         let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
         let config = config::load_config(&cwd).unwrap_or_default();
         let autoload = composer::load_autoload_paths(&cwd).unwrap_or_default();
@@ -57,10 +58,11 @@ impl Backend {
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
-        log::debug!("initialize called");
+        tracing::debug!("initialize called");
         if let Some(root) = params.root_uri.and_then(|u| u.to_file_path().ok()) {
             if let Err(e) = indexer::scan_workspace(&root, &self.index) {
-                log::error!("workspace scan failed: {}", e);
+                tracing::error!("workspace scan failed: {}", e);
+                crate::metrics::inc_error("initialize");
             }
             let idx = self.index.clone();
             if let Ok(w) = fs::watch(&root, move |res| {
@@ -95,19 +97,19 @@ impl LanguageServer for Backend {
     async fn initialized(&self, _: InitializedParams) {}
 
     async fn shutdown(&self) -> Result<()> {
-        log::debug!("shutdown called");
+        tracing::debug!("shutdown called");
         Ok(())
     }
 
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
-        log::debug!("opened {}", params.text_document.uri);
+        tracing::debug!("opened {}", params.text_document.uri);
         self.handle_change(params.text_document.uri.clone(), params.text_document.text)
             .await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         if let Some(change) = params.content_changes.first() {
-            log::debug!("document changed");
+            tracing::debug!("document changed");
             self.handle_change(params.text_document.uri.clone(), change.text.clone())
                 .await;
         }
@@ -117,7 +119,8 @@ impl LanguageServer for Backend {
         &self,
         params: GotoDefinitionParams,
     ) -> Result<Option<GotoDefinitionResponse>> {
-        log::debug!("goto_definition request");
+        let _timer = crate::metrics::Timer::new("goto_definition");
+        tracing::debug!("goto_definition request");
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
         if let Some(doc) = self.get_document(&uri) {
@@ -131,32 +134,33 @@ impl LanguageServer for Backend {
                     &doc.symbols,
                     &self.index,
                 ) {
-                    log::debug!(
+                    tracing::debug!(
                         "goto_definition found: {} at {:?}",
                         resolved.name,
                         resolved.location
                     );
-                    log::debug!("goto_definition: returning definition");
+                    tracing::debug!("goto_definition: returning definition");
                     return Ok(Some(GotoDefinitionResponse::Scalar(resolved.location)));
                 } else {
-                    log::debug!("goto_definition: symbol '{}' not resolved", name);
+                    tracing::debug!("goto_definition: symbol '{}' not resolved", name);
                 }
             } else {
-                log::debug!(
+                tracing::debug!(
                     "goto_definition: no symbol found at position {:?}",
                     position
                 );
             }
         } else {
-            log::debug!("goto_definition: document not found for uri {}", uri);
+            tracing::debug!("goto_definition: document not found for uri {}", uri);
         }
-        log::debug!("goto_definition: returning None");
-        log::debug!("goto_definition completed");
+        tracing::debug!("goto_definition: returning None");
+        tracing::debug!("goto_definition completed");
         Ok(None)
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        log::debug!("completion request");
+        let _timer = crate::metrics::Timer::new("completion");
+        tracing::debug!("completion request");
         let uri = params.text_document_position.text_document.uri;
         let mut items = Vec::new();
         if let Some(doc) = self.get_document(&uri) {
@@ -177,13 +181,14 @@ impl LanguageServer for Backend {
                 });
             }
         }
-        log::debug!("completion returned {} items", items.len());
-        log::debug!("completion completed");
+        tracing::debug!("completion returned {} items", items.len());
+        tracing::debug!("completion completed");
         Ok(Some(CompletionResponse::Array(items)))
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        log::debug!("hover request");
+        let _timer = crate::metrics::Timer::new("hover");
+        tracing::debug!("hover request");
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
         if let Some(doc) = self.get_document(&uri) {
@@ -201,7 +206,7 @@ impl LanguageServer for Backend {
                         "{} {:?}",
                         resolved.name, resolved.kind
                     )));
-                    log::debug!("hover: returning information for {}", resolved.name);
+                    tracing::debug!("hover: returning information for {}", resolved.name);
                     return Ok(Some(Hover {
                         contents,
                         range: Some(resolved.location.range),
@@ -209,7 +214,7 @@ impl LanguageServer for Backend {
                 }
             }
         }
-        log::debug!("hover: returning None");
+        tracing::debug!("hover: returning None");
         Ok(None)
     }
 
@@ -290,7 +295,7 @@ impl LanguageServer for Backend {
         params: ExecuteCommandParams,
     ) -> Result<Option<serde_json::Value>> {
         if params.command == "phppp.restart" {
-            log::debug!("Restart requested");
+            tracing::debug!("Restart requested");
             std::process::exit(0);
         }
         Ok(None)
@@ -299,7 +304,8 @@ impl LanguageServer for Backend {
 
 impl Backend {
     async fn handle_change(&self, uri: Url, content: String) {
-        log::debug!("indexing {}", uri);
+        let _timer = crate::metrics::Timer::new("handle_change");
+        tracing::debug!("indexing {}", uri);
 
         let ast = {
             let bump = self.bump.lock().unwrap();
@@ -321,7 +327,7 @@ impl Backend {
             );
         }
 
-        log::debug!("document indexed");
+        tracing::debug!("document indexed");
     }
 
     fn get_document(&self, uri: &Url) -> Option<DocumentState> {

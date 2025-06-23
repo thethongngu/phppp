@@ -1,6 +1,6 @@
 [package]
 name = "phppp"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 
 [lib]
@@ -33,6 +33,11 @@ serde_json = "1"
 serde = { version = "1", features = ["derive"] }
 which = "5"
 walkdir = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+tracing-log = "0.2"
+prometheus = "0.13"
+hyper = { version = "0.14", features = ["full"] }
 
 [dev-dependencies]
 tempfile = "3"

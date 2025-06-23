@@ -9,6 +9,6 @@ impl Plugin for LaravelPlugin {
     }
 
     fn register(&self, _index: &GlobalIndex) {
-        log::info!("Laravel helper plugin active");
+        tracing::info!("Laravel helper plugin active");
     }
 }

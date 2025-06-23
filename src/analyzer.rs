@@ -3,10 +3,10 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 
 pub fn resolve_types_parallel(symbols: &HashMap<String, Symbol>) {
-    log::debug!("Resolving types for {} symbols", symbols.len());
+    tracing::debug!("Resolving types for {} symbols", symbols.len());
     symbols.par_iter().for_each(|(_, s)| {
         // Dummy resolution logic
         let _ = format!("Resolved symbol: {}", s.name);
     });
-    log::debug!("Type resolution completed");
+    tracing::debug!("Type resolution completed");
 }

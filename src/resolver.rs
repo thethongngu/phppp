@@ -145,7 +145,7 @@ pub fn resolve_symbol(
     file_symbols: &FileSymbols,
     global: &GlobalIndex,
 ) -> Option<ResolvedSymbol> {
-    log::debug!("Resolving symbol '{}' at {}:{}", name, uri, position.line);
+    tracing::debug!("Resolving symbol '{}' at {}:{}", name, uri, position.line);
     // Step 1: local variables/parameters
     if name.starts_with('$') {
         if let Some(sym) = find_local_variable(name, src, ast, position, uri) {
@@ -169,7 +169,7 @@ pub fn resolve_symbol(
             kind: sym.kind.clone(),
             location: sym.location.clone(),
         };
-        log::debug!("Resolved symbol '{}' in current file", resolved.name);
+        tracing::debug!("Resolved symbol '{}' in current file", resolved.name);
         return Some(resolved);
     }
 
@@ -181,11 +181,11 @@ pub fn resolve_symbol(
                 kind: sym.kind.clone(),
                 location: sym.location.clone(),
             };
-            log::debug!("Resolved symbol '{}' in global index", resolved.name);
+            tracing::debug!("Resolved symbol '{}' in global index", resolved.name);
             return Some(resolved);
         }
     }
 
-    log::debug!("Unable to resolve symbol '{}'", name);
+    tracing::debug!("Unable to resolve symbol '{}'", name);
     None
 }

@@ -22,7 +22,7 @@ impl PluginManager {
 
     pub fn register_all(&self, index: &GlobalIndex) {
         for p in &self.plugins {
-            log::info!("Registering plugin {}", p.name());
+            tracing::info!("Registering plugin {}", p.name());
             p.register(index);
         }
     }

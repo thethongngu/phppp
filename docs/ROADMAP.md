@@ -61,10 +61,10 @@ Operate the LSP at production scale with robust logging and monitoring.
 - Continuous benchmarking
 
 ### TODO
-- [ ] Integrate `tracing` for structured logs
-- [ ] Expose Prometheus metrics endpoint
-- [ ] Add stress tests simulating large projects
-- [ ] Automate release builds with GitHub Actions
+- [x] Integrate `tracing` for structured logs
+- [x] Expose Prometheus metrics endpoint
+- [x] Add stress tests simulating large projects
+- [x] Automate release builds with GitHub Actions
 
 ## Milestone 5: Community & Adoption
 
