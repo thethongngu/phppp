@@ -24,7 +24,7 @@ aliasFunc();
     let uri_b = Url::parse("file:///b.php").unwrap();
     let symbols_b = indexer::extract_symbols(src_b, &ast_b, &uri_b);
 
-    let index = indexer::GlobalIndex::new();
+    let index = indexer::new_index();
     index.insert(uri_a.clone(), symbols_a.clone());
     index.insert(uri_b.clone(), symbols_b.clone());
     let pos = Position {
@@ -50,7 +50,7 @@ function foo($bar) {
     let ast = parser::parse_php(src, &bump);
     let uri = Url::parse("file:///c.php").unwrap();
     let symbols = indexer::extract_symbols(src, &ast, &uri);
-    let index = indexer::GlobalIndex::new();
+    let index = indexer::new_index();
     index.insert(uri.clone(), symbols.clone());
 
     let pos = Position {
