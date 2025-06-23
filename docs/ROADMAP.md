@@ -77,10 +77,10 @@ Build a strong community to drive adoption and contributions.
 - Outreach via blog posts and social media
 
 ### TODO
-- [ ] Expand `docs/` with user and dev guides
-- [ ] Add GitHub templates for issues and PRs
-- [ ] Set up monthly release schedule
-- [ ] Engage with PHP community conferences
+- [x] Expand `docs/` with user and dev guides
+- [x] Add GitHub templates for issues and PRs
+- [x] Set up monthly release schedule
+- [x] Engage with PHP community conferences
 
 ---
 
