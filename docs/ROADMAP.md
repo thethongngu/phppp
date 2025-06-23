@@ -13,10 +13,10 @@ Provide a solid foundation with a reliable parser, analyzer and LSP implementati
 - Basic completion, hover and go-to-definition support
 
 ### TODO
-- [ ] Expand parser test coverage using examples in `examples/`
-- [ ] Integrate tree-sitter updates for latest PHP grammar
-- [ ] Document architecture in `README.md`
-- [ ] Ensure `cargo check` and `cargo test` pass in CI
+- [x] Expand parser test coverage using examples in `examples/`
+- [x] Integrate tree-sitter updates for latest PHP grammar
+- [x] Document architecture in `README.md`
+- [x] Ensure `cargo check` and `cargo test` pass in CI
 
 ## Milestone 2: Advanced IDE Features
 
