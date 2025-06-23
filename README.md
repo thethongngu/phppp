@@ -37,6 +37,14 @@ Run the example parser on a PHP file:
 cargo run --bin example examples/hello.php
 ```
 
+## Architecture
+
+The server is built using **tree-sitter** for parsing PHP source files. Parsed
+syntax trees are fed into an indexer that collects functions, classes, constants
+and variables for quick lookup. An analyzer then resolves symbol definitions
+across documents, while the LSP layer powered by `tower-lsp` exposes completion,
+hover and go-to-definition features.
+
 ## Running the LSP Server
 
 To run the main LSP server:

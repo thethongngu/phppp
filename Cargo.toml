@@ -1,6 +1,6 @@
 [package]
 name = "phppp"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 
 [lib]
@@ -23,8 +23,8 @@ tokio = { version = "1", features = ["full"] }
 notify = "6"
 rayon = "1"
 bumpalo = "3"
-tree-sitter = "0.25"
-tree-sitter-php = "0.23"
+tree-sitter = "0.25.6"
+tree-sitter-php = "0.23.11"
 dashmap = "5"
 regex = "1"
 log = "0.4.27"
