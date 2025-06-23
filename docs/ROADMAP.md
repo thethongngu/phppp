@@ -45,10 +45,10 @@ Ensure the server works seamlessly in major PHP frameworks and tools.
 - Extension API for community plugins
 
 ### TODO
-- [ ] Resolve class paths from `composer.json`
-- [ ] Prototype Laravel helper plugin
-- [ ] Document configuration options
-- [ ] Publish VS Code extension on Marketplace
+- [x] Resolve class paths from `composer.json`
+- [x] Prototype Laravel helper plugin
+- [x] Document configuration options
+- [x] Publish VS Code extension on Marketplace
 
 ## Milestone 4: Reliability & Observability
 
