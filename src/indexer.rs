@@ -1,10 +1,14 @@
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 
 use dashmap::DashMap;
 use tower_lsp::lsp_types::{Location, Position, Range, Url};
 use tree_sitter::Node;
 
-use crate::parser::Ast;
+use crate::parser::{self, Ast};
+use bumpalo::Bump;
+use walkdir::WalkDir;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SymbolKind {
@@ -23,7 +27,38 @@ pub struct Symbol {
 }
 
 pub type FileSymbols = HashMap<String, Symbol>;
-pub type GlobalIndex = DashMap<Url, FileSymbols>;
+pub type GlobalIndex = std::sync::Arc<DashMap<Url, FileSymbols>>;
+
+pub fn new_index() -> GlobalIndex {
+    std::sync::Arc::new(DashMap::new())
+}
+
+pub fn scan_workspace(root: &Path, index: &GlobalIndex) -> std::io::Result<()> {
+    index.clear();
+    for entry in WalkDir::new(root).into_iter().filter_map(|e| e.ok()) {
+        if entry.path().extension().and_then(|s| s.to_str()) == Some("php") {
+            index_file(entry.path(), index)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn index_file(path: &Path, index: &GlobalIndex) -> std::io::Result<()> {
+    if !path.exists() {
+        index.remove(&Url::from_file_path(path).unwrap());
+        return Ok(());
+    }
+    if path.extension().and_then(|s| s.to_str()) != Some("php") {
+        return Ok(());
+    }
+    let src = fs::read_to_string(path)?;
+    let bump = Bump::new();
+    let ast = parser::parse_php(&src, &bump);
+    let uri = Url::from_file_path(path).unwrap();
+    let symbols = extract_symbols(&src, &ast, &uri);
+    index.insert(uri, symbols);
+    Ok(())
+}
 
 pub fn extract_symbols(src: &str, ast: &Ast, uri: &Url) -> FileSymbols {
     log::debug!("Indexing symbols in {}", uri);

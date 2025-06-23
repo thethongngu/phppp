@@ -29,9 +29,9 @@ Enhance developer productivity with advanced analysis and refactoring tools.
 - Incremental diagnostics with real-time feedback
 
 ### TODO
-- [ ] Implement indexer module for workspace scanning
-- [ ] Add integration tests for rename and references
-- [ ] Support incremental file watching via `notify` crate
+- [x] Implement indexer module for workspace scanning
+- [x] Add integration tests for rename and references
+- [x] Support incremental file watching via `notify` crate
 - [ ] Profile and optimize analyzer performance
 
 ## Milestone 3: Ecosystem Integration

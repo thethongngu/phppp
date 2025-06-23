@@ -1,8 +1,8 @@
 use phppp::server::Backend;
 use tower_lsp::lsp_types::{
     CompletionParams, CompletionResponse, DidOpenTextDocumentParams, GotoDefinitionParams,
-    GotoDefinitionResponse, HoverParams, Position, TextDocumentIdentifier, TextDocumentItem,
-    TextDocumentPositionParams, Url,
+    GotoDefinitionResponse, HoverParams, Position, ReferenceContext, ReferenceParams, RenameParams,
+    TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams, Url,
 };
 use tower_lsp::{LanguageServer, LspService};
 
@@ -116,4 +116,72 @@ async fn hover_shows_symbol() {
         }
         _ => panic!("unexpected"),
     }
+}
+
+#[tokio::test]
+async fn references_returns_locations() {
+    let (service, _) = LspService::new(|c| Backend::new(c));
+    let backend = service.inner();
+    let uri = Url::parse("file:///test.php").unwrap();
+    let text = "<?php function foo() {}\nfoo();\nfoo();";
+    backend
+        .did_open(DidOpenTextDocumentParams {
+            text_document: TextDocumentItem {
+                uri: uri.clone(),
+                language_id: "php".into(),
+                version: 1,
+                text: text.into(),
+            },
+        })
+        .await;
+
+    let params = ReferenceParams {
+        text_document_position: TextDocumentPositionParams {
+            text_document: TextDocumentIdentifier { uri: uri.clone() },
+            position: Position {
+                line: 0,
+                character: 15,
+            },
+        },
+        work_done_progress_params: Default::default(),
+        partial_result_params: Default::default(),
+        context: ReferenceContext {
+            include_declaration: true,
+        },
+    };
+    let refs = backend.references(params).await.unwrap().unwrap();
+    assert!(refs.len() >= 2);
+}
+
+#[tokio::test]
+async fn rename_returns_edit() {
+    let (service, _) = LspService::new(|c| Backend::new(c));
+    let backend = service.inner();
+    let uri = Url::parse("file:///test.php").unwrap();
+    let text = "<?php function foo() {}\nfoo();\nfoo();";
+    backend
+        .did_open(DidOpenTextDocumentParams {
+            text_document: TextDocumentItem {
+                uri: uri.clone(),
+                language_id: "php".into(),
+                version: 1,
+                text: text.into(),
+            },
+        })
+        .await;
+
+    let params = RenameParams {
+        text_document_position: TextDocumentPositionParams {
+            text_document: TextDocumentIdentifier { uri: uri.clone() },
+            position: Position {
+                line: 0,
+                character: 15,
+            },
+        },
+        new_name: "bar".into(),
+        work_done_progress_params: Default::default(),
+    };
+    let edit = backend.rename(params).await.unwrap().unwrap();
+    let changes = edit.changes.unwrap();
+    assert!(changes.get(&uri).unwrap().len() >= 3);
 }

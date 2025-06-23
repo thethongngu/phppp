@@ -1,4 +1,5 @@
 use bumpalo::Bump;
+use notify::RecommendedWatcher;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -6,7 +7,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use crate::{analyzer, indexer, parser, resolver};
+use crate::{analyzer, fs, indexer, parser, resolver};
 
 #[derive(Default, Clone)]
 pub struct DocumentState {
@@ -20,6 +21,7 @@ pub struct Backend {
     documents: Arc<Mutex<HashMap<Url, DocumentState>>>,
     bump: Mutex<Bump>,
     index: indexer::GlobalIndex,
+    watcher: Mutex<Option<RecommendedWatcher>>,
 }
 
 impl Backend {
@@ -30,15 +32,31 @@ impl Backend {
             client,
             documents: Arc::new(Mutex::new(HashMap::new())),
             bump: Mutex::new(Bump::new()),
-            index: indexer::GlobalIndex::new(),
+            index: indexer::new_index(),
+            watcher: Mutex::new(None),
         }
     }
 }
 
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
-    async fn initialize(&self, _: InitializeParams) -> Result<InitializeResult> {
+    async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
         log::debug!("initialize called");
+        if let Some(root) = params.root_uri.and_then(|u| u.to_file_path().ok()) {
+            if let Err(e) = indexer::scan_workspace(&root, &self.index) {
+                log::error!("workspace scan failed: {}", e);
+            }
+            let idx = self.index.clone();
+            if let Ok(w) = fs::watch(&root, move |res| {
+                if let Ok(ev) = res {
+                    for p in ev.paths {
+                        let _ = indexer::index_file(&p, &idx);
+                    }
+                }
+            }) {
+                *self.watcher.lock().unwrap() = Some(w);
+            }
+        }
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
@@ -175,6 +193,78 @@ impl LanguageServer for Backend {
             }
         }
         log::debug!("hover: returning None");
+        Ok(None)
+    }
+
+    async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
+        let uri = params.text_document_position.text_document.uri;
+        let pos = params.text_document_position.position;
+        if let Some(doc) = self.get_document(&uri) {
+            if let Some(name) = self.symbol_at_position(&doc, pos) {
+                let mut out = Vec::new();
+                let docs = self.documents.lock().unwrap();
+                for (u, d) in docs.iter() {
+                    for (i, line) in d.text.lines().enumerate() {
+                        for m in line.match_indices(&name) {
+                            out.push(Location {
+                                uri: u.clone(),
+                                range: Range {
+                                    start: Position {
+                                        line: i as u32,
+                                        character: m.0 as u32,
+                                    },
+                                    end: Position {
+                                        line: i as u32,
+                                        character: m.0 as u32 + name.len() as u32,
+                                    },
+                                },
+                            });
+                        }
+                    }
+                }
+                if !out.is_empty() {
+                    return Ok(Some(out));
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let uri = params.text_document_position.text_document.uri;
+        let pos = params.text_document_position.position;
+        let new_name = params.new_name;
+        if let Some(doc) = self.get_document(&uri) {
+            if let Some(name) = self.symbol_at_position(&doc, pos) {
+                let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+                let docs = self.documents.lock().unwrap();
+                for (u, d) in docs.iter() {
+                    for (i, line) in d.text.lines().enumerate() {
+                        for m in line.match_indices(&name) {
+                            changes.entry(u.clone()).or_default().push(TextEdit {
+                                range: Range {
+                                    start: Position {
+                                        line: i as u32,
+                                        character: m.0 as u32,
+                                    },
+                                    end: Position {
+                                        line: i as u32,
+                                        character: m.0 as u32 + name.len() as u32,
+                                    },
+                                },
+                                new_text: new_name.clone(),
+                            });
+                        }
+                    }
+                }
+                if !changes.is_empty() {
+                    return Ok(Some(WorkspaceEdit {
+                        changes: Some(changes),
+                        ..WorkspaceEdit::default()
+                    }));
+                }
+            }
+        }
         Ok(None)
     }
 
