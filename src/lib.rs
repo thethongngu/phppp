@@ -1,7 +1,11 @@
 pub mod analyzer;
+pub mod composer;
+pub mod config;
 pub mod fs;
 pub mod indexer;
+pub mod laravel;
 pub mod logging;
 pub mod parser;
+pub mod plugin;
 pub mod resolver;
 pub mod server;

@@ -7,7 +7,10 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use crate::{analyzer, fs, indexer, parser, resolver};
+use crate::{
+    analyzer, composer, config, fs, indexer, laravel::LaravelPlugin, parser, plugin::PluginManager,
+    resolver,
+};
 
 #[derive(Default, Clone)]
 pub struct DocumentState {
@@ -22,18 +25,31 @@ pub struct Backend {
     bump: Mutex<Bump>,
     index: indexer::GlobalIndex,
     watcher: Mutex<Option<RecommendedWatcher>>,
+    config: config::Config,
+    autoload: HashMap<String, String>,
+    plugins: PluginManager,
 }
 
 impl Backend {
     pub fn new(client: Client) -> Self {
         crate::logging::init(client.clone());
         log::info!("running phppp version {}", env!("CARGO_PKG_VERSION"));
+        let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let config = config::load_config(&cwd).unwrap_or_default();
+        let autoload = composer::load_autoload_paths(&cwd).unwrap_or_default();
+        let mut plugins = PluginManager::new();
+        if config.enable_laravel {
+            plugins.add(LaravelPlugin);
+        }
         Self {
             client,
             documents: Arc::new(Mutex::new(HashMap::new())),
             bump: Mutex::new(Bump::new()),
             index: indexer::new_index(),
             watcher: Mutex::new(None),
+            config,
+            autoload,
+            plugins,
         }
     }
 }
@@ -56,6 +72,7 @@ impl LanguageServer for Backend {
             }) {
                 *self.watcher.lock().unwrap() = Some(w);
             }
+            self.plugins.register_all(&self.index);
         }
         Ok(InitializeResult {
             capabilities: ServerCapabilities {

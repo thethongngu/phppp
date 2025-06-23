@@ -55,3 +55,17 @@ cargo run
 
 The server logs messages to the editor's **Output** panel. You can also restart
 the server from your editor by executing the `phppp.restart` command.
+
+## Configuration
+
+phppp reads a `.phppprc` file from your workspace root. Currently the file is
+JSON formatted and supports the following option:
+
+- `enable_laravel` - when set to `true`, registers additional helpers for
+  Laravel projects.
+
+Example `.phppprc`:
+
+```json
+{ "enable_laravel": true }
+```
