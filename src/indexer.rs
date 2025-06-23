@@ -61,7 +61,7 @@ pub fn index_file(path: &Path, index: &GlobalIndex) -> std::io::Result<()> {
 }
 
 pub fn extract_symbols(src: &str, ast: &Ast, uri: &Url) -> FileSymbols {
-    log::debug!("Indexing symbols in {}", uri);
+    tracing::debug!("Indexing symbols in {}", uri);
     let root = ast.0.root_node();
     let mut out = HashMap::new();
     let mut namespace = String::new();
@@ -79,7 +79,7 @@ pub fn extract_symbols(src: &str, ast: &Ast, uri: &Url) -> FileSymbols {
             }
         }
     }
-    log::debug!("Found {} symbols", out.len());
+    tracing::debug!("Found {} symbols", out.len());
     out
 }
 

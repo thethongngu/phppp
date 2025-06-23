@@ -5,6 +5,7 @@ pub mod fs;
 pub mod indexer;
 pub mod laravel;
 pub mod logging;
+pub mod metrics;
 pub mod parser;
 pub mod plugin;
 pub mod resolver;
